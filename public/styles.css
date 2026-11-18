@@ -68,6 +68,8 @@ button.primary:hover { filter: brightness(1.1); }
 .btn.stop::before { width: 11px; height: 11px; border-radius: 2px; background: var(--rojo); }
 
 .estado { font-size: 11px; color: #a9b0a6; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.estado.ok { color: var(--verde); font-weight: 600; font-size: 12px; }
+.estado.error { color: #ff8a6b; font-weight: 600; font-size: 12px; }
 
 /* Dentro de la ventana flotante */
 body.pip { background: var(--pill); display: grid; place-items: center; min-height: 100vh; }

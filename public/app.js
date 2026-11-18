@@ -34,9 +34,11 @@ function nombreArchivo(fecha) {
   return `llamada-${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}_${dos(fecha.getHours())}-${dos(fecha.getMinutes())}.txt`;
 }
 
-function setEstado(texto) {
+// tipo: '' (normal), 'ok' (verde, guardado) o 'error' (rojo)
+function setEstado(texto, tipo = '') {
   ui.estado.textContent = texto;
   ui.estado.title = texto;
+  ui.estado.className = `estado ${tipo}`;
 }
 
 function setModo(nuevo) {
@@ -231,9 +233,9 @@ function encolar(s, blob, offsetMs) {
     s.pendientes--;
     try {
       await guardarTxt(s);
-      if (!s.pendientes) setEstado(`Guardado: ${s.nombre}`);
+      if (!s.pendientes) setEstado(`✓ Guardado en ${carpeta.name}/${s.nombre}`, 'ok');
     } catch (e) {
-      setEstado(`No se pudo guardar el .txt: ${e.message}`);
+      setEstado(`✗ No se pudo guardar el .txt: ${e.message}`, 'error');
     }
   });
 }
@@ -268,6 +270,7 @@ async function guardarTxt(s) {
 function pausar() {
   cerrarTramo(sesion);
   setModo('paused');
+  setEstado('Pausado · transcribiendo y guardando…');
 }
 
 function reanudar() {
@@ -284,7 +287,8 @@ async function terminar() {
   await cerrarTramo(s);
   s.streams.forEach((st) => st.getTracks().forEach((t) => t.stop()));
   s.ctx.close();
-  if (!s.partes.length && !s.pendientes) setEstado('Listo');
+  if (s.pendientes) setEstado('Terminado · transcribiendo y guardando…');
+  else if (!s.partes.length) setEstado('Terminado · no se grabó audio');
   ui.tiempo.textContent = reloj(s.acumuladoMs);
 }
 
@@ -328,7 +332,7 @@ async function abrirFlotante() {
     return;
   }
   if (documentPictureInPicture.window) return;
-  const pip = await documentPictureInPicture.requestWindow({ width: 290, height: 90 });
+  const pip = await documentPictureInPicture.requestWindow({ width: 300, height: 100 });
   const link = pip.document.createElement('link');
   link.rel = 'stylesheet';
   link.href = new URL('styles.css', location.href).href;
