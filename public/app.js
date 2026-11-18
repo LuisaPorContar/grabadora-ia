@@ -288,8 +288,12 @@ async function terminar() {
   ui.tiempo.textContent = reloj(s.acumuladoMs);
 }
 
-ui.grabar.addEventListener('click', () => {
-  if (modo === 'idle') iniciar();
+ui.grabar.addEventListener('click', async () => {
+  if (modo === 'idle') {
+    // Si se empieza desde la página, el widget pasa a flotar solo.
+    if (!flotanteAbierto()) await abrirFlotante().catch(() => {});
+    iniciar();
+  }
   else if (modo === 'recording') pausar();
   else reanudar();
 });
@@ -314,7 +318,11 @@ setInterval(() => {
 
 // ---------- Widget flotante ----------
 
-$('btnFlotante').addEventListener('click', async () => {
+function flotanteAbierto() {
+  return 'documentPictureInPicture' in window && !!documentPictureInPicture.window;
+}
+
+async function abrirFlotante() {
   if (!('documentPictureInPicture' in window)) {
     setEstado('Tu navegador no tiene widget flotante. Usa Chrome o Edge.');
     return;
@@ -329,7 +337,9 @@ $('btnFlotante').addEventListener('click', async () => {
   pip.document.body.className = 'pip';
   pip.document.body.append(pill);
   pip.addEventListener('pagehide', () => $('pillHome').append(pill));
-});
+}
+
+$('btnFlotante').addEventListener('click', () => abrirFlotante().catch(() => {}));
 
 // Aviso si se cierra la pestaña con una grabación en curso.
 window.addEventListener('beforeunload', (e) => {
