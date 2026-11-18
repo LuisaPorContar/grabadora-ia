@@ -355,7 +355,7 @@ async function abrirFlotante() {
   link.rel = 'stylesheet';
   link.href = new URL('styles.css', location.href).href;
   pip.document.head.append(link);
-  pip.document.title = 'Grabadora';
+  pip.document.title = 'Grabadora Biz';
   pip.document.body.className = 'pip';
   pip.document.body.append(pill);
   pip.addEventListener('pagehide', () => $('pillHome').append(pill));

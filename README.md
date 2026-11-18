@@ -1,4 +1,4 @@
-# Grabadora IA
+# Grabadora Biz
 
 Widget flotante para grabar llamadas y videollamadas desde el navegador (Chrome o Edge). Graba el micrófono y el audio del sistema. Cada vez que pausas o terminas, transcribe ese tramo con Whisper (vía Groq) y guarda un `.txt` en una carpeta del PC.
 
