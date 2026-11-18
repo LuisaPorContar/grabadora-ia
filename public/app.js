@@ -5,6 +5,8 @@ const $ = (id) => document.getElementById(id);
 const pill = $('pill');
 const ui = {
   tiempo: $('tiempo'),
+  llamada: $('btnLlamada'),
+  nota: $('btnNota'),
   grabar: $('btnGrabar'),
   parar: $('btnParar'),
   estado: $('estado'),
@@ -30,8 +32,8 @@ function reloj(ms) {
   return (h ? `${h}:` : '') + `${dos(m)}:${dos(s % 60)}`;
 }
 
-function nombreArchivo(fecha) {
-  return `llamada-${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}_${dos(fecha.getHours())}-${dos(fecha.getMinutes())}.txt`;
+function nombreArchivo(fecha, tipo) {
+  return `${tipo === 'nota' ? 'nota' : 'llamada'}-${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}_${dos(fecha.getHours())}-${dos(fecha.getMinutes())}.txt`;
 }
 
 // tipo: '' (normal), 'ok' (verde, guardado) o 'error' (rojo)
@@ -44,10 +46,15 @@ function setEstado(texto, tipo = '') {
 function setModo(nuevo) {
   modo = nuevo;
   pill.dataset.modo = nuevo;
-  ui.parar.hidden = nuevo === 'idle';
-  const titulos = { idle: 'Grabar', recording: 'Pausar y transcribir', paused: 'Continuar' };
-  ui.grabar.title = titulos[nuevo];
-  ui.grabar.setAttribute('aria-label', titulos[nuevo]);
+  const quieto = nuevo === 'idle';
+  ui.llamada.hidden = !quieto;
+  ui.nota.hidden = !quieto;
+  ui.tiempo.hidden = quieto;
+  ui.grabar.hidden = quieto;
+  ui.parar.hidden = quieto;
+  const titulo = nuevo === 'recording' ? 'Pausar y guardar' : 'Continuar';
+  ui.grabar.title = titulo;
+  ui.grabar.setAttribute('aria-label', titulo);
 }
 
 // ---------- Carpeta (se recuerda entre visitas) ----------
@@ -115,29 +122,33 @@ ui.carpetaBtn.addEventListener('click', async () => {
 
 // ---------- Grabación ----------
 
-async function iniciar() {
+// tipo: 'llamada' (micrófono + audio del sistema) o 'nota' (solo micrófono, sin compartir pantalla)
+async function iniciar(tipo) {
   if ((await permisoCarpeta()) !== 'granted') {
-    setEstado('Primero elige la carpeta donde guardar.');
+    setEstado('Primero elige la carpeta donde guardar (en la página).', 'error');
     return;
   }
 
-  setEstado('Elige tu pantalla y activa el audio del sistema');
-  let pantalla;
-  try {
-    pantalla = await navigator.mediaDevices.getDisplayMedia({
-      video: { displaySurface: 'monitor' }, // abre directo en "Pantalla completa"
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      systemAudio: 'include',
-      selfBrowserSurface: 'exclude',
-      surfaceSwitching: 'exclude',
-      monitorTypeSurfaces: 'include',
-    });
-  } catch (e) {
-    setEstado(e.name === 'InvalidStateError' ? 'Dale al botón desde la página de la grabadora.' : 'Cancelado. Dale de nuevo al botón.');
-    return;
+  let pantalla = null;
+  let conAudioSistema = false;
+  if (tipo === 'llamada') {
+    setEstado('Elige tu pantalla y activa el audio del sistema');
+    try {
+      pantalla = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: 'monitor' }, // abre directo en "Pantalla completa"
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        systemAudio: 'include',
+        selfBrowserSurface: 'exclude',
+        surfaceSwitching: 'exclude',
+        monitorTypeSurfaces: 'include',
+      });
+    } catch (e) {
+      setEstado(e.name === 'InvalidStateError' ? 'Dale al botón desde la página de la grabadora.' : 'Cancelado. Dale de nuevo al botón.');
+      return;
+    }
+    // Sin audio del sistema igual se graba: queda el micrófono (que con parlantes también capta al otro).
+    conAudioSistema = pantalla.getAudioTracks().length > 0;
   }
-  // Sin audio del sistema igual se graba: queda el micrófono (que con parlantes también capta al otro).
-  const conAudioSistema = pantalla.getAudioTracks().length > 0;
 
   let mic;
   try {
@@ -145,8 +156,8 @@ async function iniciar() {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
   } catch {
-    pantalla.getTracks().forEach((t) => t.stop());
-    setEstado('Sin acceso al micrófono.');
+    pantalla?.getTracks().forEach((t) => t.stop());
+    setEstado('Sin acceso al micrófono: permítelo en el candado de la barra de direcciones.', 'error');
     return;
   }
 
@@ -163,10 +174,11 @@ async function iniciar() {
 
   const ahora = new Date();
   sesion = {
-    nombre: nombreArchivo(ahora),
+    tipo,
+    nombre: nombreArchivo(ahora, tipo),
     inicio: ahora,
     partes: [],
-    streams: [pantalla, mic],
+    streams: [pantalla, mic].filter(Boolean),
     ctx,
     dest,
     analyser,
@@ -178,11 +190,12 @@ async function iniciar() {
 
   // Si la persona pulsa "Dejar de compartir" en Chrome, se termina la grabación.
   const s = sesion;
-  pantalla.getTracks().forEach((t) => t.addEventListener('ended', () => { if (sesion === s) terminar(); }));
+  pantalla?.getTracks().forEach((t) => t.addEventListener('ended', () => { if (sesion === s) terminar(); }));
 
   empezarTramo(s);
   setModo('recording');
-  setEstado(conAudioSistema ? 'Grabando…' : 'Grabando solo tu micrófono (audio del sistema apagado)');
+  if (tipo === 'nota') setEstado('Grabando tu voz…');
+  else setEstado(conAudioSistema ? 'Grabando la llamada…' : 'Grabando solo tu micrófono (audio del sistema apagado)');
 }
 
 function empezarTramo(s) {
@@ -260,7 +273,8 @@ function formatear(r, offsetMs) {
 
 async function guardarTxt(s) {
   const cuerpo = s.partes.filter(Boolean).join('\n\n') || '(No se detectó voz)';
-  const contenido = `Grabación del ${s.inicio.toLocaleString('es-CO')}\n\n${cuerpo}\n`;
+  const titulo = s.tipo === 'nota' ? 'Nota de voz' : 'Llamada';
+  const contenido = `${titulo} del ${s.inicio.toLocaleString('es-CO')}\n\n${cuerpo}\n`;
   const archivo = await carpeta.getFileHandle(s.nombre, { create: true });
   const w = await archivo.createWritable();
   await w.write(contenido);
@@ -292,14 +306,18 @@ async function terminar() {
   ui.tiempo.textContent = reloj(s.acumuladoMs);
 }
 
-ui.grabar.addEventListener('click', async () => {
-  if (modo === 'idle') {
-    // Si se empieza desde la página, el widget pasa a flotar solo.
-    if (!flotanteAbierto()) await abrirFlotante().catch(() => {});
-    iniciar();
-  }
-  else if (modo === 'recording') pausar();
-  else reanudar();
+async function empezar(tipo) {
+  if (modo !== 'idle') return;
+  // Si se empieza desde la página, el widget pasa a flotar solo.
+  if (!flotanteAbierto()) await abrirFlotante().catch(() => {});
+  iniciar(tipo);
+}
+
+ui.llamada.addEventListener('click', () => empezar('llamada'));
+ui.nota.addEventListener('click', () => empezar('nota'));
+ui.grabar.addEventListener('click', () => {
+  if (modo === 'recording') pausar();
+  else if (modo === 'paused') reanudar();
 });
 ui.parar.addEventListener('click', terminar);
 
