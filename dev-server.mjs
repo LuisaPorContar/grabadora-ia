@@ -2,6 +2,7 @@
 // Uso: npm run dev  →  abre http://localhost:8888 en Chrome o Edge.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
@@ -9,11 +10,18 @@ import transcribe from './netlify/functions/transcribe.mjs';
 
 const aqui = path.dirname(fileURLToPath(import.meta.url));
 
-// Se relee .env en cada transcripción: si cambias la clave no hay que reiniciar.
+// La clave se busca en el .env del proyecto y en ~/.grabadora/.env (fuera de carpetas sincronizadas).
+// Se relee en cada transcripción: si cambias la clave no hay que reiniciar.
+const ARCHIVOS_ENV = [path.join(aqui, '.env'), path.join(os.homedir(), '.grabadora', '.env')];
+
 async function cargarEnv() {
-  try {
-    Object.assign(process.env, parseEnv(await readFile(path.join(aqui, '.env'), 'utf8')));
-  } catch {}
+  for (const archivo of ARCHIVOS_ENV) {
+    try {
+      for (const [k, v] of Object.entries(parseEnv(await readFile(archivo, 'utf8')))) {
+        if (v.trim()) process.env[k] = v.trim();
+      }
+    } catch {}
+  }
 }
 
 const raiz = path.join(aqui, 'public');

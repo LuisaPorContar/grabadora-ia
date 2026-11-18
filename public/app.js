@@ -119,25 +119,23 @@ async function iniciar() {
     return;
   }
 
-  setEstado('Elige "Pantalla completa" + audio del sistema…');
+  setEstado('Elige tu pantalla y activa el audio del sistema');
   let pantalla;
   try {
     pantalla = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
+      video: { displaySurface: 'monitor' }, // abre directo en "Pantalla completa"
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       systemAudio: 'include',
       selfBrowserSurface: 'exclude',
+      surfaceSwitching: 'exclude',
       monitorTypeSurfaces: 'include',
     });
   } catch (e) {
-    setEstado(e.name === 'InvalidStateError' ? 'Empieza a grabar desde la página principal.' : 'No se compartió la pantalla.');
+    setEstado(e.name === 'InvalidStateError' ? 'Dale al botón desde la página de la grabadora.' : 'Cancelado. Dale de nuevo al botón.');
     return;
   }
-  if (!pantalla.getAudioTracks().length) {
-    pantalla.getTracks().forEach((t) => t.stop());
-    setEstado('Falta el audio: activa "Compartir audio del sistema".');
-    return;
-  }
+  // Sin audio del sistema igual se graba: queda el micrófono (que con parlantes también capta al otro).
+  const conAudioSistema = pantalla.getAudioTracks().length > 0;
 
   let mic;
   try {
@@ -155,7 +153,7 @@ async function iniciar() {
   const dest = ctx.createMediaStreamDestination();
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 64;
-  for (const s of [pantalla, mic]) {
+  for (const s of conAudioSistema ? [pantalla, mic] : [mic]) {
     const fuente = ctx.createMediaStreamSource(new MediaStream(s.getAudioTracks()));
     fuente.connect(dest);
     fuente.connect(analyser);
@@ -182,7 +180,7 @@ async function iniciar() {
 
   empezarTramo(s);
   setModo('recording');
-  setEstado('Grabando…');
+  setEstado(conAudioSistema ? 'Grabando…' : 'Grabando solo tu micrófono (audio del sistema apagado)');
 }
 
 function empezarTramo(s) {
