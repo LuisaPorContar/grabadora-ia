@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grabadora</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="setup">
+    <h1>Grabadora de llamadas</h1>
+    <p class="lead">Graba tus llamadas y videollamadas. Cada vez que pausas o terminas, se transcribe y se guarda un .txt en tu PC.</p>
+
+    <ol class="steps">
+      <li>
+        <button id="btnCarpeta" class="primary">Elegir carpeta</button>
+        <span id="carpetaNombre" class="muted">Sin carpeta</span>
+      </li>
+      <li>
+        <button id="btnFlotante" class="primary">Abrir widget flotante</button>
+        <span class="muted">Queda encima de todas tus ventanas.</span>
+      </li>
+    </ol>
+
+    <p class="tip">Al grabar, el navegador te pregunta qué compartir: elige <b>Pantalla completa</b> y activa <b>Compartir audio del sistema</b>. Así queda grabada la otra persona.</p>
+
+    <div id="pillHome" class="pill-home">
+      <div id="pill" class="pill" data-modo="idle">
+        <div class="fila">
+          <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          <span class="time" id="tiempo">00:00</span>
+          <button id="btnGrabar" class="btn rec" title="Grabar" aria-label="Grabar"></button>
+          <button id="btnParar" class="btn stop" title="Terminar" aria-label="Terminar" hidden></button>
+        </div>
+        <div class="estado" id="estado">Listo</div>
+      </div>
+    </div>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
